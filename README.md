@@ -47,6 +47,35 @@ PPO Agent (Stable-Baselines3 MlpPolicy)
 TensorBoard: ep_rew_mean, lap_count, policy_loss
 ```
 
+## Evaluation
+
+`agent/evaluate.py` rolls out a trained policy for `n_episodes` and reports:
+
+| Metric | Description |
+|--------|-------------|
+| `mean_reward` | Average undiscounted episode return across rollouts |
+| `mean_laps` | Average completed laps per episode (primary task-success signal) |
+| Episode length | Mean steps survived; truncation indicates the agent stayed on track |
+
+Run:
+
+```bash
+python -m agent.evaluate --model-path ./models/ppo_racing --n-episodes 50
+```
+
+Recommended additional offline diagnostics:
+
+- **Lap completion rate**: fraction of episodes with `lap_count >= 1` (success rate).
+- **Off-track termination rate**: fraction of episodes ending in the off-track penalty.
+- **Mean lap time**: steps per completed lap, lower is better, indicates speed–stability trade-off.
+- **Reward decomposition**: log progress / speed / alignment / penalty terms separately to
+  TensorBoard to detect reward hacking.
+- **Robustness sweep**: re-evaluate the same checkpoint with perturbed track radius / friction
+  in `configs/env_config.yaml` to estimate generalization.
+
+Training curves (`ep_rew_mean`, `ep_len_mean`, `policy_loss`, `value_loss`) are streamed to
+`./tensorboard_logs/` and viewable via `tensorboard --logdir ./tensorboard_logs`.
+
 ## Reward Engineering
 
 | Component | Value |
