@@ -1,0 +1,15 @@
+track:
+  num_waypoints: 50
+  track_width: 80
+  inner_radius: 200
+  outer_radius: 280
+car:
+  max_speed: 10.0
+  acceleration: 0.5
+  brake_deceleration: 0.8
+  steering_rate: 5.0
+  friction: 0.05
+observation:
+  num_ray_sensors: 9
+  ray_length: 200
+max_steps_per_episode: 2000

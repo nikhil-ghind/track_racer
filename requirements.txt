@@ -1,0 +1,8 @@
+gymnasium==0.29.*
+stable-baselines3==2.3.*
+torch==2.3.*
+pygame==2.5.*
+numpy==1.*
+tensorboard==2.17.*
+pyyaml==6.*
+pytest==8.*
