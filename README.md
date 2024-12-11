@@ -33,18 +33,70 @@ pytest tests/ -v
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    subgraph env["RacingEnv — Gymnasium"]
+        track["Track<br/>50 waypoints on a circle,<br/>inner radius 200 / outer 280,<br/>get_progress, is_on_track"]
+        car["Car<br/>bicycle-style update:<br/>steering_rate, acceleration,<br/>brake, friction, max_speed 10"]
+        rays["cast_rays<br/>9 ray sensors, length 200"]
+        obs["observation, shape 11<br/>dist_to_center / half width,<br/>heading_error / 180,<br/>9 ray distances"]
+        rew["compute_reward<br/>progress x 10<br/>speed x 0.1 when on track<br/>heading alignment up to 0.5<br/>off track -10<br/>lap +100<br/>-0.01 per step"]
+        done["terminated: off track<br/>truncated: 2000 steps"]
+    end
+
+    subgraph agent["PPO — Stable-Baselines3"]
+        pol["MlpPolicy actor-critic"]
+        roll["rollout buffer<br/>n_steps 2048, gamma 0.99,<br/>gae_lambda 0.95"]
+        upd["update<br/>10 epochs, batch 64, clip 0.2,<br/>ent_coef 0.01, vf_coef 0.5, lr 3e-4"]
+    end
+
+    act["action, shape 2<br/>steering and throttle in [-1, 1]"]
+    cb["LapCounterCallback<br/>logs lap_count from info"]
+    tb["TensorBoard<br/>./tensorboard_logs"]
+    save["models/ppo_racing"]
+    watch["scripts/watch_agent.py<br/>Pygame renderer: boundaries,<br/>car, rays and HUD"]
+    ev["agent/evaluate.py<br/>mean_reward, mean_laps, episode length"]
+
+    car --> rays --> obs
+    track --> rays
+    track --> rew
+    car --> rew
+    obs --> pol --> act
+    act --> car
+    rew --> roll
+    obs --> roll
+    roll --> upd --> pol
+    done --> roll
+    cb --> tb
+    upd --> tb
+    upd --> save
+    save --> watch
+    save --> ev
+    env --> cb
 ```
-RacingEnv (Gymnasium)
-  Track: circular waypoints, inner/outer boundaries
-  Car: bicycle physics (speed, heading, friction)
-  Obs: [dist_to_center, heading_error, ray_sensor × 9]
-  Act: [steering, throttle] ∈ [-1, 1]²
-  Reward: progress×10 + speed×0.1 + alignment - off_track×10 + lap×100 - 0.01
-       ↓
-PPO Agent (Stable-Baselines3 MlpPolicy)
-  Actor-Critic MLP, n_steps=2048, clip_range=0.2
-       ↓
-TensorBoard: ep_rew_mean, lap_count, policy_loss
+
+One environment step, in the order the code runs it:
+
+```mermaid
+sequenceDiagram
+    participant P as PPO policy
+    participant E as RacingEnv.step
+    participant C as Car
+    participant T as Track
+
+    P->>E: action = [steering, throttle]
+    E->>C: car.step(steering, throttle)
+    E->>T: get_progress(x, y, prev_waypoint_idx)
+    T-->>E: new waypoint index, progress_delta
+    alt total progress reaches 50 waypoints
+        E->>E: lap_count += 1, wrap the progress counter
+    end
+    E->>T: get_nearest_waypoint and is_on_track
+    T-->>E: dist_to_center, on_track
+    E->>E: heading_error against the next waypoint bearing
+    E->>E: compute_reward(...)
+    E->>C: cast_rays for the next observation
+    E-->>P: obs, reward, terminated (off track),<br/>truncated (step limit), info with lap_count
 ```
 
 ## Evaluation
